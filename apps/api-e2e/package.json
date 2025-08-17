@@ -1,0 +1,26 @@
+{
+  "name": "@crack-nx-nestjs-docker/api-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "implicitDependencies": [
+      "@crack-nx-nestjs-docker/api"
+    ],
+    "targets": {
+      "e2e": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{projectRoot}/test-output/jest/coverage"
+        ],
+        "options": {
+          "jestConfig": "apps/api-e2e/jest.config.ts",
+          "passWithNoTests": true
+        },
+        "dependsOn": [
+          "@crack-nx-nestjs-docker/api:build",
+          "@crack-nx-nestjs-docker/api:serve"
+        ]
+      }
+    }
+  }
+}
