@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    command: pnpx nx serve api
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount the entire codebase except for /dist
+      - ./apps/api/src:/usr/src/app/apps/api/src
+    environment:
+      - NX_DAEMON=true
+    restart: unless-stopped
+

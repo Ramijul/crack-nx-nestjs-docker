@@ -9,6 +9,7 @@ export class AppController {
     return {
       status: 'ok',
       time: new Date().toISOString(),
+      message: `yahoo`,
     };
   }
 }
