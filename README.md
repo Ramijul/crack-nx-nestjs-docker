@@ -4,6 +4,7 @@
 ```
 nx version: 21.4.0
 pnpm version: 10.13.1
+os: Windows 11
 ```
 
 ## Commands used:
@@ -13,29 +14,27 @@ pnpm version: 10.13.1
 > nx g @nx/nest:app apps/api
 ```
 
-## Steps to glory
-1. Running `nx serve api`
-    1. Failed for the first time - timeout. 
-    2. Running the second time did not start the NX Daemon - "NX Daemon is not running. Node process will not restart automatically after file changes." Ran the command `nx reset`
-    3. Running the serve command for the third time started the Daemon and the app. However, on a simple change to the response of `/api` failed the webpack build.
-        1. Moved the `app.controller.ts` and `app.module.ts` to the app root, and deleted the `api/src/app` and `dist` folders. Hoping for the a successful rebuild. No Luck!
-        2. Ran the command `nx reset` followed by `nx server api` - rebuilt successfully. However, on file change webpack-cli build fails - can't load webpack config; complaining "Cannot read properties of undefined (reading 'data')". After further investigation, I discovered that the nx project graph was missing details for "nodes" 
-            - `/.nx/workspace-data/project-graph.json` contained `nodes: {}`. It is expected to have the all project configs in the pattern 
-                ```
-                nodes: {
-                    "@{org}/{project}": {
-                        "name": string,
-                        "type": string,
-                        "data": Record<string, any>,
-                        ...
-                    }
-                }
-                ```
-            - Hence, the error "Cannot read properties of undefined (reading 'data')"
-        3. Resolution:
-            - `nx reset`
-            - Delete `.nx`, `node_modules`, `*/dist`, `pnpm-lock.yaml`
-            - `pnpm install`
-            - `nx serve api` (finally worked)
+## Goal
+Nx does a wonderful job at hot reloading on file changes. However, if we want to run a database locally for our projects, it would be an inconvinence to run the database and our applications separately. A better DX would be to use `docker compose` to spin up all the services we need and allow hot reloading within the running services. 
+
+Nx's hot reloading seems to not work when containerzed, even though the aforementioned version of Nx allows configuring it run the Daemon in a container. 
+
+An easy solution would be to simply run the applications with Docker Compose as we would in any other monorepo (take yarn workspaces, for instance). This means not utilizing Nx tasks management tool, defeating the purpose of using Nx.
+
+Therefore, the purpose of the project is to understand how Nx works and finding a way to containerize it. Note, that their documentation is unclear on the shortcomings.
+
+## Approach to the problem
+The project is initialized with a nestJS application `api`. First step is to containerize the entire Nx project and getting it to run in a container with hot relaod enabled. Second, Add a second application to the Nx project, and containerize that aswell, while running the Daemon in a separate container and letting the other services/apps communicate with it.
+
+- The branch `running-native-watcher-in-docker` documents the first step. Successfully, running the entire project in docker container with hot relaod.
+- The branch `shared-daemon-container` documents the 2nd step. Running the daemon separately and share it with other services running.
+
+At every branch, the README.md contains the documentation on the problems faced and reasoning behind the appraoch taken.
+
+## Side note on Running Nx locally (without docker)
+    1. `nx serve api` Failed for the first time - timeout error. 
+    2. Running the second time did not start the NX Daemon - "NX Daemon is not running. Node process will not restart automatically after file changes."
+    3. Looks like adding the env `NX_DAEMON = true` is required for the Daemon to run. Although, NX's documentation does not suggest so.
+    4. Running `nx serve api` started the Daemon and enable hot relaod.
 
 
