@@ -1,0 +1,10 @@
+{
+  "name": "@crack-nx-nestjs-docker/web-app-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "implicitDependencies": [
+      "@crack-nx-nestjs-docker/web-app"
+    ]
+  }
+}

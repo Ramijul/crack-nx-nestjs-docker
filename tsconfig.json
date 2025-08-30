@@ -8,6 +8,12 @@
     },
     {
       "path": "./apps/api"
+    },
+    {
+      "path": "./apps/web-app-e2e"
+    },
+    {
+      "path": "./apps/web-app"
     }
   ]
 }
