@@ -1,19 +1,77 @@
-version: '3.8'
-
 services:
-  # api:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.local
-  #   command: pnpx nx serve api
-  #   ports:
-  #     - "3000:3000"
-  #   volumes:
-  #     # Mount the entire codebase except for /dist
-  #     - ./apps/api/src:/usr/src/app/apps/api/src
-  #   environment:
-  #     - NX_DAEMON=true
-  #   restart: unless-stopped
+  daemon:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    # Run the daemon and keep the container running
+    command: sh -c "pnpx nx daemon --start && tail -f /dev/null"
+    volumes:
+      # Mount the apps directory.
+      # This is shared with the api and webapp services, 
+      # emulating a local development environment same as it would be
+      # without docker compose.
+      - apps:/usr/src/app/apps
+      # Mount the socket and cache directories
+      # These are shared with the api and webapp services
+      # Once the daemon starts the socket and nx-cache directories are created
+      # and the api and webapp services can use them
+      - nx-socket:/tmp/nx-socket
+      - nx-cache:/usr/src/app/.nx
+    healthcheck:
+      # Ensure the daemon is running by checking the log file.
+      # Once the daemon is running, it will log the message starting with "Started listening on:"
+      # in ".nx/workspace-data/d/daemon.log"
+      test: >
+        sh -c '
+          test -f /usr/src/app/.nx/workspace-data/d/daemon.log &&
+          head -n 1 /usr/src/app/.nx/workspace-data/d/daemon.log | grep -q "Started listening on:"
+        '
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    environment:
+      # Set the socket path for the daemon
+      # The daemon will set up the sockets in the provided path
+      # which is then shared with the api and webapp services
+      # through the shared volume (nx-socket)
+      - NX_DAEMON_SOCKET_DIR=/tmp/nx-socket
+      # Set the daemon flag to true
+      # This is required when using Docker
+      - NX_DAEMON=true
+    restart: unless-stopped
+
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    command: pnpx nx serve api
+    ports:
+      - "3000:3000"
+    depends_on:
+      daemon:
+        # We want to start the api service only after the daemon is running
+        condition: service_healthy
+    volumes:
+      # Mount the apps directory.
+      # shared with all services
+      - apps:/usr/src/app/apps
+      # Mount the socket and cache directories that are pointed to by the daemon
+      # through the shared volume (nx-socket and nx-cache)
+      - nx-socket:/tmp/nx-socket
+      - nx-cache:/usr/src/app/.nx
+    environment:
+      # Set the daemon flag to true
+      # This is required when using Docker
+      - NX_DAEMON=true
+      # Set the socket path for the daemon
+      # Given that we are mounting the socket directory with a name different from
+      # the default one, we need to set the socket path to the one we mounted
+      - NX_DAEMON_SOCKET_DIR=/tmp/nx-socket
+    restart: unless-stopped
+    networks:
+      - nx-network
 
   webapp:
     build:
@@ -22,9 +80,42 @@ services:
     command: pnpx nx serve web-app
     ports:
       - "4200:4200"
+    depends_on:
+      daemon:
+        # We want to start the webapp service only after the daemon is running
+        condition: service_healthy
     volumes:
-      - ./apps/web-app:/usr/src/app/apps/web-app
+      # Mount the entire codebase as shared volume
+      - apps:/usr/src/app/apps
+      - nx-socket:/tmp/nx-socket
+      - nx-cache:/usr/src/app/.nx
     environment:
       - NX_DAEMON=true
+      # Set the socket path for the daemon
+      # Given that we are mounting the socket directory with a name different from
+      # the default one, we need to set the socket path to the one we mounted
+      - NX_DAEMON_SOCKET_DIR=/tmp/nx-socket
     restart: unless-stopped
+    networks:
+      - nx-network
 
+volumes:
+  nx-cache:
+  nx-socket:
+  # mounting only the apps directory so that the changes are reflected in the container
+  # however, we do not want the node_modules and nx cache directory in docker to override
+  # the local node_modules and nx cache directory. Which is why they are not mounted.
+  #
+  # Note that node_modules is already in the docker image and all services have the 
+  # same version. Any changes made to the packages will require a re-build 
+  # (docker compose up --build).
+  apps:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./apps
+      o: bind
+
+networks:
+  nx-network:
+    driver: bridge 
