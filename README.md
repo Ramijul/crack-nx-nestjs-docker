@@ -29,7 +29,8 @@ os: Windows 11
 - Set the env variable `NX_DAEMON=true`. This required in the docker environment for the daemon to run
 - Re-build docker on changes made outside of the `/apps` directory
 
-
+## The Implementation
+*WIP*
 
 
 
